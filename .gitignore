@@ -1,0 +1,4 @@
+.idea/*
+savar/__pycache__/*
+savar/build/*
+test.py
