@@ -47,7 +47,7 @@ class SAVAR:
                  "forcing_dict", "season_dict",
                  "data_field", "noise_data_field", "seasonal_data_field", "forcing_data_field",
                  "linearity",
-                 "verbose"]
+                 "verbose", "model_seed"]
 
     def __init__(self, links_coeffs: dict, time_length: int, mode_weights: np.ndarray, transient: int = 200,
                  noise_weights: np.ndarray = None,
@@ -56,14 +56,14 @@ class SAVAR:
                  forcing_dict: dict = None, season_dict: dict = None,
                  data_field: np.ndarray = None, noise_data_field: np.ndarray = None,
                  seasonal_data_field: np.ndarray = None, forcing_data_field: np.ndarray = None,
-                 linearity: str = "linear", verbose: bool = False,
+                 linearity: str = "linear", verbose: bool = False, model_seed: int = None,
                  ):
 
         self.links_coeffs = links_coeffs
         self.time_length = time_length
         self.transient = transient
         self.noise_strength = noise_strength
-        self.noise_variance = noise_variance
+        self.noise_variance = noise_variance  #TODO: NOT USED.
         self.noise_cov = noise_cov
 
         self.latent_noise_cov = latent_noise_cov  # D_x
@@ -79,6 +79,7 @@ class SAVAR:
 
         self.linearity = linearity
         self.verbose = verbose
+        self.model_seed = model_seed
 
         # Computed attributes
         self.n_vars = len(links_coeffs)
@@ -97,6 +98,9 @@ class SAVAR:
         self.noise_data_field = noise_data_field
         self.seasonal_data_field = seasonal_data_field
         self.forcing_data_field = forcing_data_field
+
+        if np.random is not None:
+            np.random.seed(model_seed)
 
     def generate_data(self):
         """
@@ -128,7 +132,7 @@ class SAVAR:
         else:
             raise NotImplemented("Now, only linear methods are implemented")
 
-    def _generate_cov_noise_matrix(self) -> np.ndarray:
+    def generate_cov_noise_matrix(self) -> np.ndarray:
         """
         W \in NxL
         data_field L times T
@@ -144,7 +148,7 @@ class SAVAR:
 
     def _add_noise_field(self):
         if self.noise_cov is None:
-            cov = self._generate_cov_noise_matrix()
+            cov = self.generate_cov_noise_matrix()
 
         # Generate noise from cov
         self.noise_data_field = np.random.multivariate_normal(mean=np.zeros(self.spatial_resolution), cov=cov,

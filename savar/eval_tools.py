@@ -1,14 +1,11 @@
 # This file containts the functions of the experiments
 
-# Set the package parent
-PACKAGE_PARENT = '..'
-
 # Import internals
-from spatial_models import savarModel
-from dim_methods import get_varimax_loadings_standard as varimax
-from c_functions import find_permutation, create_graph
-from model_generator import generate_random_coeff, generate_savar_model
-from functions import cg_to_est_phi
+from savar.savar import SAVAR
+from savar.dim_methods import get_varimax_loadings_standard as varimax
+from savar.c_functions import find_permutation, create_graph
+from savar.model_generator import generate_random_coeff, generate_savar_model
+from savar.functions import cg_to_est_phi
 
 # Tigramite
 from tigramite import data_processing as pp
@@ -51,7 +48,7 @@ class DmMethod:
 
     """
 
-    def __init__(self, savar: savarModel, tau_max: int = None, max_comps: int = None,
+    def __init__(self, savar: SAVAR, tau_max: int = None, max_comps: int = None,
                  significance: str = "analytic", ind_test: str = "ParCorr", pc_alpha: float = 0.2,
                  parents_alpha: float = 0.05, correct_permutation: bool = True, perform_analysis: bool = False,
                  verbose: bool = True):
