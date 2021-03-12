@@ -23,12 +23,10 @@ def dict_to_matrix(links_coeffs, default=0):
 
     graph = np.ones((n_vars, n_vars, tau_max), dtype=float)
     graph *= default
-    print(graph)
 
     for j, values in links_coeffs.items():
         for (i, tau), coeff in values:
             graph[j, i, abs(tau) - 1] = coeff
-            print(coeff)
 
     return graph
 
@@ -102,32 +100,42 @@ class SAVAR:
         if np.random is not None:
             np.random.seed(model_seed)
 
-    def generate_data(self):
+    def generate_data(self) -> None:
         """
         Generates the data of savar
         :return:
         """
         # Prepare the datafield
         if self.data_field is None:
+            if self.verbose:
+                print("Creating empty data field")
             # Compute the field
             self.data_field = np.zeros((self.spatial_resolution, self.time_length + self.transient))
 
         # Add noise first
         if self.noise_data_field is None:
+            if self.verbose:
+                print("Creating noise data field")
             self._add_noise_field()
         else:
             self.data_field += self.noise_data_field
 
         # Add seasonality
         if self.season_dict is not None:
+            if self.verbose:
+                print("Adding seasonality forcing")
             self._add_seasonality_forcing()
 
         # Add external forcing
         if self.forcing_dict is not None:
+            if self.verbose:
+                print("Adding external forcing")
             self._add_external_forcing()
 
             # Compute the data
         if self.linearity == "linear":
+            if self.verbose:
+                print("Creating linear data")
             self._create_linear()
         else:
             raise NotImplemented("Now, only linear methods are implemented")
@@ -148,10 +156,10 @@ class SAVAR:
 
     def _add_noise_field(self):
         if self.noise_cov is None:
-            cov = self.generate_cov_noise_matrix()
+            self.noise_cov = self.generate_cov_noise_matrix()
 
         # Generate noise from cov
-        self.noise_data_field = np.random.multivariate_normal(mean=np.zeros(self.spatial_resolution), cov=cov,
+        self.noise_data_field = np.random.multivariate_normal(mean=np.zeros(self.spatial_resolution), cov=self.noise_cov,
                                                               size=self.time_length + self.transient).transpose()
 
         self.data_field += self.noise_data_field
@@ -159,7 +167,6 @@ class SAVAR:
     def _add_seasonality_forcing(self):
 
         # A*sin((2pi/lambda)*x) A = amplitude, lambda = period
-        print(self.season_dict)
         amplitude = self.season_dict["amplitude"]
         period = self.season_dict["period"]
         season_weight = self.season_dict.get("season_weight", None)

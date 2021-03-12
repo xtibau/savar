@@ -3,6 +3,7 @@ import numpy as np
 import itertools as it
 import random
 from copy import deepcopy
+from typing import Tuple
 import warnings
 
 # Internal
@@ -13,16 +14,16 @@ from savar.savar import SAVAR
 class SavarGenerator:
 
     def __init__(self,
-                 links_coeffs: list = None, n_variables: int = 3, time_length: int = 500, transient: int = 200,
+                 links_coeffs: dict = None, n_variables: int = 3, time_length: int = 500, transient: int = 200,
                  # Noise
                  noise_strength: float = 1., noise_variance: float = None, noise_weights: np.ndarray = None,
-                 resolution: tuple = (10, 10), gaussian_shape: bool = True, noise_cov: np.ndarray = None,
+                 resolution: tuple = (10, 10),noise_cov: np.ndarray = None,
                  latent_noise_cov: np.ndarray = None, fast_cov: np.ndarray = None,
                  # Fields
                  data_field: np.ndarray = None, noise_data_field: np.ndarray = None,
                  seasonal_data_field: np.ndarray = None, forcing_data_field: np.ndarray = None,
                  # Weights
-                 mode_weights: np.ndarray = None,
+                 mode_weights: np.ndarray = None,  gaussian_shape: bool = True,
                  random_mode=True, dipole: int = None, mask_variables: int = None, norm_weight: bool = True,
                  # links
                  n_cross_links=3, auto_coeffs_mean: float = 0.3, auto_coffs_std: float = 0.2,
@@ -139,6 +140,21 @@ class SavarGenerator:
         if self.tau_min < 1 & self.tau_min > self.tau_max:
             raise KeyError("Tau min must be at least one and smaller or equal than tau_max")
 
+        if noise_weights is None and mode_weights is not None:
+            self.noise_weights = self.mode_weights
+
+        if mode_weights is None and mode_weights is not None:
+            self.mode_weights = noise_weights
+
+        if mode_weights is not None:
+            if self.mode_weights.reshape(n_variables, -1).shape[0] != resolution[0]*resolution[1]:
+                if self.verbose:
+                    print("Warning: changing resolution to the shape of the modes")
+                self.resolution = (self.mode_weights.shape[1], self.mode_weights.shape[2])
+
+        if self.verbose:
+            print("Class model generator created")
+
     def generate_links_coeff(self):
         """
         Generates the random links coeffs according to the input
@@ -164,7 +180,8 @@ class SavarGenerator:
         all_possible_tau = [(i, j, tau) for i, j in all_possible for tau in range(self.tau_min, self.tau_max + 1)]
 
         # Choose n_links cross links at different taus
-        chosen_links = all_possible_tau[np.random.permutation(len(all_possible_tau))[:self.n_cross_links]]
+        random.shuffle(all_possible_tau)
+        chosen_links = all_possible_tau[:self.n_cross_links]
 
         for (i, j, tau) in chosen_links:
             coeff = self._get_random_link_strength(mean=self.cross_mean, std=self.cross_std,
@@ -173,13 +190,13 @@ class SavarGenerator:
             links[j].append(((i, -tau), coeff))
 
         # Stationarity check assuming model with linear dependencies at least for large x
-        if self._check_stationarity(links)[0]:
+        if self.check_stationarity(links)[0]:
             if self.linearity == "linear":
                 return links
             else:
                 raise NotImplementedError("Non linear models are not implemented")
 
-    def generate_weights(self):
+    def generate_weights(self) -> Tuple[int, np.ndarray]:
 
         # First estimate the size of of each mode and its location
         ny, nx = self.resolution
@@ -211,14 +228,22 @@ class SavarGenerator:
 
     def generate_savar(self):
 
+        if self.verbose:
+            print("starting savar generation")
+
         # First generate the link_coeffs
-        if self.links_coeffs is not None:
+        if self.links_coeffs is None:
+            if self.verbose:
+                print("Starting generation of coefficents")
             self.links_coeffs = self.generate_links_coeff()
 
         # weights
-        size, self.mode_weights = self.generate_weights()
+        if self.mode_weights is None:
+            _, self.mode_weights = self.generate_weights()
 
         if self.noise_weights is None:
+            if self.verbose:
+                print("Starting generation of weights")
             self.noise_weights = deepcopy(self.mode_weights)
 
         if self.n_var_ornstein is not None:
@@ -250,6 +275,8 @@ class SavarGenerator:
             "verbose": self.verbose,
         }
 
+        if self.verbose:
+            print("starting SAVAR class")
         savar = SAVAR(**savar_dict)
 
         if self.n_var_ornstein is not None:
@@ -275,11 +302,9 @@ class SavarGenerator:
             n_horiz = nx // size
             n_verti = ny // size
             total_slots = n_horiz * n_verti
-            if total_slots > n_var:  # If there is free space rise size
+            if total_slots >= n_var:  # If there is free space rise size
                 size += 1
                 continue
-            if total_slots == n_var:  # Match exactly
-                break
             if total_slots < n_var:  # Too large, go back and output the result
                 size -= 1
                 n_horiz = nx // size
@@ -338,7 +363,7 @@ class SavarGenerator:
                 return np.ones((size, size))
 
     @staticmethod
-    def _check_stationarity(links, linear=True):
+    def check_stationarity(links, linear=True):
         """Returns stationarity according to a unit root test
         Assuming a Gaussian Vector autoregressive process
         Three conditions are necessary for stationarity of the VAR(p) model:
@@ -410,6 +435,7 @@ class SavarGenerator:
                         return -strength
                     else:
                         return strength
+            return strength
 
 
 mode_configuration = {
