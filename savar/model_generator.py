@@ -17,7 +17,7 @@ class SavarGenerator:
                  links_coeffs: dict = None, n_variables: int = 3, time_length: int = 500, transient: int = 200,
                  # Noise
                  noise_strength: float = 1., noise_variance: float = None, noise_weights: np.ndarray = None,
-                 resolution: tuple = (10, 10),noise_cov: np.ndarray = None,
+                 resolution: tuple = (10, 10), noise_cov: np.ndarray = None,
                  latent_noise_cov: np.ndarray = None, fast_cov: np.ndarray = None,
                  # Fields
                  data_field: np.ndarray = None, noise_data_field: np.ndarray = None,

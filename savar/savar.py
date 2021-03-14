@@ -190,7 +190,7 @@ class SAVAR:
 
     def _add_external_forcing(self):
 
-        if self.forcing_dict is None:
+        if self.forcing_dic is None:
             raise TypeError("Forcing dict is empty")
 
         w_f = deepcopy(self.forcing_dict.get("w_f"))
