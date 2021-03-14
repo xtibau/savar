@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D  # Plots in 3D
-from c_functions import create_graph
+from savar.c_functions import create_graph
 from tigramite.data_processing import smooth
 
 from typing import Union
