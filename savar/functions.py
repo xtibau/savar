@@ -6,8 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D  # Plots in 3D
-from savar.c_functions import create_graph
 from tigramite.data_processing import smooth
+import itertools as it
 
 from typing import Union
 
@@ -323,6 +323,50 @@ def create_non_stationarity(N_var: int, t_sample: int, tau: float = 0.5, cov_mat
     except:
         print("Smoothing windows "+str(smoothing_window)+" is invalid")
     return X_smooth
+
+def create_graph(links_coeffs, return_lag = True):
+
+    """
+    :param links_coeffs:
+    :param return_lag: if True, return max lag, otherwise returns only np.ndarray
+    From the shape of [j, i, tau]
+    :return:
+    """
+
+    # Define N
+    N = len(links_coeffs)
+    non_linear = False
+
+    # Detect if it s non-linear link_coeff
+    if len(links_coeffs[0][0]) == 3:
+        non_linear = True
+
+    # We find the max_lag
+    if not non_linear:
+        max_lag = max(abs(lag)
+                      for (_, lag), _ in it.chain.from_iterable(links_coeffs.values()))
+    else:
+        max_lag = max(abs(lag)
+              for (_, lag), _, _ in it.chain.from_iterable(links_coeffs.values()))
+
+    # We create an empty graph
+    graph = np.zeros((N, N, max_lag + 1))
+
+    # Compute the graph values
+    if not non_linear:
+        for j, values in links_coeffs.items():
+            for (i, tau), coeff in values:
+                graph[j, i, abs(tau) - 1] = coeff if tau != 0 else 0
+    else:
+        for j, values in links_coeffs.items():
+            for (i, tau), coeff, _ in values:
+                graph[j, i, abs(tau) - 1] = coeff if tau != 0 else 0
+
+    if return_lag:
+        return np.asarray(graph), max_lag
+    else:
+        return np.asarray(graph)
+
 
 # def create_cov_matrix(noise_weights, spatial_covariance=0.4, use_spataial_cov=True):
 #     #TODO: needs to be fixed, because covariance matrix does not work with random relations.

@@ -237,10 +237,10 @@ class SavarGenerator:
         if self.links_coeffs is None:
             if self.verbose:
                 print("Starting generation of coefficents")
-
             # Look for stable links
             count = 0
             while self.links_coeffs is None:
+                print("inside while")
                 self.links_coeffs = self.generate_links_coeff()
                 count += 1
                 if count == 200:
