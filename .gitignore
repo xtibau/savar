@@ -1,5 +1,5 @@
 .idea/*
 savar/__pycache__/*
-savar/build/*
+build/*
 test.py
 savar/c_functions.c
