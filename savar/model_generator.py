@@ -195,6 +195,8 @@ class SavarGenerator:
                 return links
             else:
                 raise NotImplementedError("Non linear models are not implemented")
+        else:
+            return None
 
     def generate_weights(self) -> Tuple[int, np.ndarray]:
 
@@ -235,7 +237,16 @@ class SavarGenerator:
         if self.links_coeffs is None:
             if self.verbose:
                 print("Starting generation of coefficents")
-            self.links_coeffs = self.generate_links_coeff()
+
+            # Look for stable links
+            count = 0
+            while self.links_coeffs is None:
+                self.links_coeffs = self.generate_links_coeff()
+                count += 1
+                if count == 200:
+                    msg = "Impossible to find an stable links_coeff dict"
+                    print(msg)
+                    raise RecursionError(msg)
 
         # weights
         if self.mode_weights is None:
