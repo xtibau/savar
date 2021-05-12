@@ -207,9 +207,10 @@ class SAVAR:
         f_time_1 += self.transient
         f_time_2 += self.transient
 
-        trend = np.concatenate((np.repeat([f_1], f_time_1 + self.transient), np.linspace(f_1, f_2, f_time_2 - f_time_1),
-                                np.repeat([f_2], self.time_length - f_time_2))).reshape((1, self.time_length +
-                                                                                         self.transient))
+        # Check
+        time_length = self.time_length + self.transient
+        trend = np.concatenate((np.repeat([f_1], f_time_1), np.linspace(f_1, f_2, f_time_2 - f_time_1),
+                                np.repeat([f_2], time_length - f_time_2))).reshape((1, time_length))
 
         forcing_field = (w_f_sum.reshape(1, -1) * trend.transpose()).transpose()
         self.forcing_data_field = forcing_field
