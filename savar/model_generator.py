@@ -152,6 +152,13 @@ class SavarGenerator:
                     print("Warning: changing resolution to the shape of the modes")
                 self.resolution = (self.mode_weights.shape[1], self.mode_weights.shape[2])
 
+        if self.links_coeffs is not None:
+            n_variables = len(self.links_coeffs)
+            if self.n_variables != n_variables:
+                warnings.warn("Number of variables in links_coeffs is different from n_vars."
+                              " Setting it to links_coeffs")
+                self.n_variables = n_variables
+
         if self.verbose:
             print("Class model generator created")
 
