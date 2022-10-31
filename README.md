@@ -19,11 +19,9 @@ from copy import deepcopy
 from savar.dim_methods import get_varimax_loadings_standard as varimax
 import matplotlib.pyplot as plt
 
-resolution = (30, 90)  # Total resolution
-N = 3  # total number of modes
-savar_generator = SavarGenerator(n_variables=100,
-                      n_cross_links=10,
-                      time_length=200)
+savar_generator = SavarGenerator(n_variables=10,
+                      n_cross_links=5,
+                      time_length=500)
 # You need to generate the model
 savar_model = savar_generator.generate_savar()
 # You need to generate the data
