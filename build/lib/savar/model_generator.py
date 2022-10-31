@@ -151,6 +151,20 @@ class SavarGenerator:
                 if self.verbose:
                     print("Warning: changing resolution to the shape of the modes")
                 self.resolution = (self.mode_weights.shape[1], self.mode_weights.shape[2])
+                
+        if self.links_coeffs is not None:
+            n_variables = len(self.links_coeffs)
+            if self.n_variables != n_variables:
+                warnings.warn("Number of variables in links_coeffs is different from n_vars."
+                              " Setting it to links_coeffs")
+                self.n_variables = n_variables
+
+        if self.links_coeffs is not None:
+            n_variables = len(self.links_coeffs)
+            if self.n_variables != n_variables:
+                warnings.warn("Number of variables in links_coeffs is different from n_vars."
+                              " Setting it to links_coeffs")
+                self.n_variables = n_variables
 
         if self.verbose:
             print("Class model generator created")
@@ -211,10 +225,10 @@ class SavarGenerator:
                 y_1, y_2, x_1, x_2 = positions[i]
                 if i in dipol_list:  # If this variable is a dipole
                     weights[i, y_1:y_2, x_1: x_2] = self.shaped_mode(size=size, gaussian_shape=self.gaussian_shape,
-                                                                     dipole=True)
+                                                                     dipole=True, random_mode=self.random_mode)
                 else:
                     weights[i, y_1:y_2, x_1: x_2] = self.shaped_mode(size=size, gaussian_shape=self.gaussian_shape,
-                                                                     dipole=False)
+                                                                     dipole=False, random_mode=self.random_mode)
                 # Add constraint |W|_1 = 1
                 if self.norm_weight:
                     weights[i, y_1:y_2, x_1: x_2] /= weights[i, y_1:y_2, x_1: x_2].sum()
@@ -223,7 +237,7 @@ class SavarGenerator:
             for i in range(self.n_variables):
                 y_1, y_2, x_1, x_2 = positions[i]
                 weights[i, y_1:y_2, x_1:x_2] = self.shaped_mode(size=size, gaussian_shape=self.gaussian_shape,
-                                                                dipole=False)
+                                                                dipole=False, random_mode=self.random_mode)
                 if self.norm_weight:
                     weights[i, y_1:y_2, x_1:x_2] /= weights[i, y_1:y_2, x_1:x_2].sum()
         return size, weights

@@ -44,8 +44,7 @@ class SAVAR:
                  "noise_cov", "noise_strength", "noise_variance", "latent_noise_cov", "fast_noise_cov",
                  "forcing_dict", "season_dict",
                  "data_field", "noise_data_field", "seasonal_data_field", "forcing_data_field",
-                 "linearity",
-                 "verbose", "model_seed"]
+                 "linearity", "verbose", "model_seed"]
 
     def __init__(self, links_coeffs: dict, time_length: int, mode_weights: np.ndarray, transient: int = 200,
                  noise_weights: np.ndarray = None,
@@ -90,6 +89,7 @@ class SAVAR:
         if self.latent_noise_cov is None:
             self.latent_noise_cov = np.eye(self.n_vars)
         if self.fast_noise_cov is None:
+            # TODO: Should be np.eye ???
             self.fast_noise_cov = np.zeros((self.spatial_resolution, self.spatial_resolution))
 
         # Empty attributes
@@ -207,9 +207,10 @@ class SAVAR:
         f_time_1 += self.transient
         f_time_2 += self.transient
 
-        trend = np.concatenate((np.repeat([f_1], f_time_1 + self.transient), np.linspace(f_1, f_2, f_time_2 - f_time_1),
-                                np.repeat([f_2], self.time_length - f_time_2))).reshape((1, self.time_length +
-                                                                                         self.transient))
+        # Check
+        time_length = self.time_length + self.transient
+        trend = np.concatenate((np.repeat([f_1], f_time_1), np.linspace(f_1, f_2, f_time_2 - f_time_1),
+                                np.repeat([f_2], time_length - f_time_2))).reshape((1, time_length))
 
         forcing_field = (w_f_sum.reshape(1, -1) * trend.transpose()).transpose()
         self.forcing_data_field = forcing_field

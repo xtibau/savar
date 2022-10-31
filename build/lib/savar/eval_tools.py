@@ -625,7 +625,7 @@ if __name__ == "__main__":
     if False:
         ##################################
         # Savar imports
-        import spatial_models as models
+        import old_spatial_models as models
         from functions import create_random_mode, check_stability, compare_phi, compare_scaled, cg_to_est_phi
         from c_dim_methods import get_varimax_loadings_standard as varimax
 
