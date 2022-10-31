@@ -39,7 +39,7 @@ for i in range(5):  # Only three are meaningful
 ```
 
 # License
-Varimax<sup>+</sup> is a Free Software project under the GNU General Public License v3, which means all its code is available for everyone to download, examine, use, modify, and distribute, subject to the usual restrictions attached to any GPL software. If you are not familiar with the GPL, see the license.txt file for more details on license terms and other legal issues. 
+SAVAR is a Free Software project under the GNU General Public License v3, which means all its code is available for everyone to download, examine, use, modify, and distribute, subject to the usual restrictions attached to any GPL software. If you are not familiar with the GPL, see the license.txt file for more details on license terms and other legal issues. 
 
 # Cite
 
