@@ -175,7 +175,8 @@ class SavarGenerator:
         :return:
         """
         np.random.seed(self.model_seed)
-
+        random.seed(self.model_seed)
+        
         # Create empty link list
         links = {N: [] for N in range(self.n_variables)}
 
