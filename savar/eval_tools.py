@@ -10,7 +10,7 @@ from savar.functions import cg_to_est_phi
 # Tigramite
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
-from tigramite.independence_tests import ParCorr
+from tigramite.independence_tests.parcorr import ParCorr
 from tigramite.models import LinearMediation, Prediction
 
 # Import externals
@@ -233,7 +233,7 @@ class DmMethod:
         # Method 1: Varimax Corr
         corr_results_var_corr = deepcopy(self.tg_results["varimax_corr"])
         # Used to convert linear OLS result from pearson coefficient
-        variance_vars = self.pcmci["varimax_corr"].dataframe.values.std(axis=0)
+        variance_vars = self.pcmci["varimax_corr"].dataframe.values[0].std(axis=0)
 
         # Get Phi from val_matrix
         Phi = corr_results_var_corr['val_matrix']
@@ -248,13 +248,15 @@ class DmMethod:
         np.fill_diagonal(self.phi["varimax_corr"][0, ...], 1)  # Fill the diagonal of tau 0 with ones
 
         # Method 2: Varimax PCMCI
-        # Get parents
-        self.parents_predict["varimax_pcmci"] = self.pcmci["varimax_pcmci"].return_significant_parents(
-            pq_matrix=self.tg_results["varimax_pcmci"]["p_matrix"],
+        # Get parents. tigramite>=5 removed return_significant_parents; build a
+        # graph from the p-matrix at parents_alpha, then extract the parents dict.
+        graph = self.pcmci["varimax_pcmci"].get_graph_from_pmatrix(
+            p_matrix=self.tg_results["varimax_pcmci"]["p_matrix"],
+            alpha_level=self.parents_alpha, tau_min=1, tau_max=self.tau_max)
+        self.parents_predict["varimax_pcmci"] = self.pcmci["varimax_pcmci"].return_parents_dict(
+            graph=graph,
             val_matrix=self.tg_results["varimax_pcmci"]["val_matrix"],
-            alpha_level=self.parents_alpha,
-            include_lagzero_parents=False,
-        )["parents"]
+            include_lagzero_parents=False)
 
         # Get model and phi
         dataframe = deepcopy(self.pcmci["varimax_pcmci"].dataframe)
@@ -263,7 +265,7 @@ class DmMethod:
         self.phi["varimax_pcmci"] = med.phi
 
         # Prediction (only for pcmci methods)
-        T, N = dataframe.values.shape
+        T, N = dataframe.values[0].shape
 
         pred = Prediction(dataframe=dataframe,
                           cond_ind_test=None,
@@ -291,7 +293,7 @@ class DmMethod:
         # Method 3: PCA Corr
         corr_results_pca_corr = deepcopy(self.tg_results["pca_corr"])
         # Used to convert linear OLS result from pearson coefficient
-        variance_vars = self.pcmci["pca_corr"].dataframe.values.std(axis=0)
+        variance_vars = self.pcmci["pca_corr"].dataframe.values[0].std(axis=0)
 
         # Get Phi from val_matrix
         Phi = corr_results_pca_corr['val_matrix']
@@ -306,12 +308,13 @@ class DmMethod:
         np.fill_diagonal(self.phi["pca_corr"][0, ...], 1)  # Fill the diagonal of tau 0 with ones
 
         # Method 4
-        self.parents_predict["pca_pcmci"] = self.pcmci["pca_pcmci"].return_significant_parents(
-            pq_matrix=self.tg_results["pca_pcmci"]["p_matrix"],
+        graph = self.pcmci["pca_pcmci"].get_graph_from_pmatrix(
+            p_matrix=self.tg_results["pca_pcmci"]["p_matrix"],
+            alpha_level=self.parents_alpha, tau_min=1, tau_max=self.tau_max)
+        self.parents_predict["pca_pcmci"] = self.pcmci["pca_pcmci"].return_parents_dict(
+            graph=graph,
             val_matrix=self.tg_results["pca_pcmci"]["val_matrix"],
-            alpha_level=self.parents_alpha,
-            include_lagzero_parents=False,
-        )["parents"]
+            include_lagzero_parents=False)
         dataframe = deepcopy(self.pcmci["pca_pcmci"].dataframe)
 
         # Get model and phi
@@ -320,7 +323,7 @@ class DmMethod:
         self.phi["pca_pcmci"] = med.phi
 
         # Prediction (only for pcmci methods)
-        T, N = dataframe.values.shape
+        T, N = dataframe.values[0].shape
 
         pred = Prediction(dataframe=dataframe,
                           cond_ind_test=None,
@@ -375,12 +378,13 @@ class DmMethod:
         self.tg_grid_results["pcmci"] = self.grid_pcmci["pcmci"].run_pcmciplus(tau_min=1, tau_max=self.tau_max,
                                                                                pc_alpha=self.pc_alpha)
 
-        self.parents_predict["pcmci"] = self.grid_pcmci["pcmci"].return_significant_parents(
-            pq_matrix=self.tg_grid_results["pcmci"]["p_matrix"],
+        graph = self.grid_pcmci["pcmci"].get_graph_from_pmatrix(
+            p_matrix=self.tg_grid_results["pcmci"]["p_matrix"],
+            alpha_level=self.parents_alpha, tau_min=1, tau_max=self.tau_max)
+        self.parents_predict["pcmci"] = self.grid_pcmci["pcmci"].return_parents_dict(
+            graph=graph,
             val_matrix=self.tg_grid_results["pcmci"]["val_matrix"],
-            alpha_level=self.parents_alpha,
-            include_lagzero_parents=False,
-        )["parents"]
+            include_lagzero_parents=False)
 
         # Get grid phi
         med = LinearMediation(dataframe=dataframe)
@@ -401,7 +405,7 @@ class DmMethod:
                                                                                              val_only=False)
 
         corr_grd_results = deepcopy(self.tg_grid_results["corr"])
-        variance_vars = self.grid_pcmci["corr"].dataframe.values.std(axis=0)
+        variance_vars = self.grid_pcmci["corr"].dataframe.values[0].std(axis=0)
 
         # Get Phi from val_matrix
         Phi = corr_grd_results['val_matrix']
