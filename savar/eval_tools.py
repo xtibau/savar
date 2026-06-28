@@ -92,7 +92,9 @@ class DmMethod:
         self.verbose = verbose
 
         # Extract savar elements
-        self.data_field = deepcopy(self.savar.data_field.transpose())  # L times T
+        # SAVAR.data_field is (L, T) (space x time); keep that orientation so that
+        # `weights @ data_field` -> (K, T) signals downstream.
+        self.data_field = deepcopy(self.savar.data_field)  # L times T
 
         # Emtpy elements
         # Savar
@@ -145,7 +147,9 @@ class DmMethod:
         # If correct permutation we fix the permutation
         if self.correct_permutation:
             savar = deepcopy(self.savar)
-            savar_signal = savar.data_field @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
+            # find_permutation wants `true` as (T, K); data_field is (L, T) so
+            # transpose it: (T, L) @ (L, K) -> (T, K).
+            savar_signal = savar.data_field.transpose() @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
             self.permutation_dict["varimax"] = find_permutation(savar_signal, self.signal["varimax"])
             idx_permutation = [self.permutation_dict["varimax"][i] for i in range(savar.n_vars)]
 
@@ -169,7 +173,9 @@ class DmMethod:
         # If correct permutation we fix the permutation
         if self.correct_permutation:
             savar = deepcopy(self.savar)
-            savar_signal = savar.data_field @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
+            # find_permutation wants `true` as (T, K); data_field is (L, T) so
+            # transpose it: (T, L) @ (L, K) -> (T, K).
+            savar_signal = savar.data_field.transpose() @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
             self.permutation_dict["pca"] = find_permutation(savar_signal, self.signal["pca"])
             idx_permutation = [self.permutation_dict["pca"][i] for i in range(savar.n_vars)]
 
@@ -187,7 +193,8 @@ class DmMethod:
         if self.significance == "analytic" and self.ind_test == "ParCorr":
             ind_test = ParCorr(significance=self.significance)
         else:
-            raise ("Only ParrCorr test implemented your option: {} not yet implemented".format(self.ind_test))
+            raise NotImplementedError(
+                "Only ParCorr test implemented; your option: {} not yet implemented".format(self.ind_test))
 
         # Varimax
         self.pcmci["varimax_pcmci"] = PCMCI(
@@ -279,7 +286,7 @@ class DmMethod:
 
                 predict_matrix[var, :] = pred.predict(var, new_data=None)
 
-        self.x_prediction["pca_corr"] = predict_matrix  # K times T
+        self.x_prediction["varimax_pcmci"] = predict_matrix  # K times T
 
         # Method 3: PCA Corr
         corr_results_pca_corr = deepcopy(self.tg_results["pca_corr"])
@@ -354,8 +361,9 @@ class DmMethod:
         if self.significance == "analytic" and self.ind_test == "ParCorr":
             ind_test = ParCorr(significance=self.significance)
         else:
-            raise ("Only ParrCorr test implemented your option: {} not yet implemented".format(self.ind_test))
-        dataframe = pp.DataFrame(self.savar.data_field)  # Input data for PCMCI T times K
+            raise NotImplementedError(
+                "Only ParCorr test implemented; your option: {} not yet implemented".format(self.ind_test))
+        dataframe = pp.DataFrame(self.savar.data_field.transpose())  # Input data for PCMCI: T times L
 
         #### PCMCI ####
         self.grid_pcmci["pcmci"] = PCMCI(
@@ -431,7 +439,6 @@ class Evaluation:
         self.dm_cg = deepcopy(self.dm_phi)
         for key in self.dm_cg:
             self.dm_cg[key][np.abs(self.dm_phi[key]) > 0] = 1
-        self.dm_phi = self.dm_object.phi
         self.dm_weights = self.dm_object.weights
 
         # savar
@@ -499,7 +506,7 @@ class Evaluation:
 
         # Signal
         # (K times T) = K times L @ L times T
-        savar_signal = self.dm_object.savar.mode_weights.reshape(N, -1) @ self.dm_object.savar.data_field.T
+        savar_signal = self.dm_object.savar.mode_weights.reshape(N, -1) @ self.dm_object.savar.data_field
         corr_signal = np.array([np.corrcoef(self.dm_object.signal[method_dm][i, ...], savar_signal[i, ...])[0, 1]
                                 for i in range(N)])
         self.metrics[method]["corr_signal"] = np.abs(corr_signal)

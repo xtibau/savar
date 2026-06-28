@@ -249,7 +249,8 @@ def create_random_mode(size: tuple, mu: tuple = (0, 0), var: tuple = (.5, .5),
     if plot:
         # Create a surface plot and projected filled contour plot under it.
         fig = plt.figure()
-        ax = fig.gca(projection='3d')
+        # fig.gca(projection=...) was removed in matplotlib 3.4+; use add_subplot.
+        ax = fig.add_subplot(projection='3d')
         ax.plot_surface(X, Y, Z, rstride=3, cstride=3, linewidth=1, antialiased=True,
                         cmap=cm.viridis)
 

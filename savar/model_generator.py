@@ -276,6 +276,8 @@ class SavarGenerator:
             self.noise_weights = deepcopy(self.mode_weights)
 
         if self.n_var_ornstein is not None:
+            if self.ornstein_sigma is None:
+                raise ValueError("ornstein_sigma must be set when n_var_ornstein is used")
             ornstein_process = create_non_stationarity(N_var=self.n_var_ornstein,
                                                        t_sample=self.time_length,
                                                        sigma=self.ornstein_sigma,
