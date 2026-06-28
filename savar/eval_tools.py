@@ -4,7 +4,7 @@
 from savar.savar import SAVAR
 from savar.dim_methods import get_varimax_loadings_standard as varimax
 from savar.c_functions import find_permutation, create_graph
-from savar.model_generator import generate_random_coeff, generate_savar_model
+from savar.model_generator import SavarGenerator
 from savar.functions import cg_to_est_phi
 
 # Tigramite
@@ -35,10 +35,10 @@ Phi
 # WEIGHTS
 # Spatial correlation of weights and signal
 # Data must be introduces as K times L or K times T.
-from c_functions import compare_weights as compare_weights_signal
+from savar.c_functions import compare_weights as compare_weights_signal
 
 # Cg_to_est_phi allows to compare phi
-from functions import compare_phi, cg_to_est_phi
+from savar.functions import compare_phi, cg_to_est_phi
 
 
 class DmMethod:
@@ -61,7 +61,7 @@ class DmMethod:
             raise Exception("saver is empty did you run the method for create data?")
 
         # Tigramite configuration
-        if self.savar.lineartiy == "linear":
+        if self.savar.linearity == "linear":
             _, max_lag = create_graph(self.savar.links_coeffs, return_lag=True)
         else:  # Get the max lag for non linear
             max_lag = max(abs(lag)
@@ -79,20 +79,22 @@ class DmMethod:
 
         # Set configuration
         if max_comps is None:  # Assign the true components
-            self.max_comps = self.savar.n_variables
+            self.max_comps = self.savar.n_vars
         else:
             self.max_comps = max_comps
             ## Check that components are <= savar.variables
-            if max_comps < self.savar.n_variables:
+            if max_comps < self.savar.n_vars:
                 print("Savar Models has {} components while max_comps = {}, the latter should be \
-                                Equal or bigger".format(savar.n_variables, self.max_comps))
+                                Equal or bigger".format(savar.n_vars, self.max_comps))
                 raise Exception("Savar Models has {0} components while max_comps = {1}, the latter should be"
-                                "equal or biggerto {0}".format(savar.n_variables, self.max_comps))
+                                "equal or biggerto {0}".format(savar.n_vars, self.max_comps))
         self.correct_permutation = correct_permutation
         self.verbose = verbose
 
         # Extract savar elements
-        self.data_field = deepcopy(self.savar.data_field.transpose())  # L times T
+        # SAVAR.data_field is (L, T) (space x time); keep that orientation so that
+        # `weights @ data_field` -> (K, T) signals downstream.
+        self.data_field = deepcopy(self.savar.data_field)  # L times T
 
         # Emtpy elements
         # Savar
@@ -145,9 +147,11 @@ class DmMethod:
         # If correct permutation we fix the permutation
         if self.correct_permutation:
             savar = deepcopy(self.savar)
-            savar_signal = savar.data_field @ savar.modes_weights.reshape(savar.n_variables, -1).transpose()
+            # find_permutation wants `true` as (T, K); data_field is (L, T) so
+            # transpose it: (T, L) @ (L, K) -> (T, K).
+            savar_signal = savar.data_field.transpose() @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
             self.permutation_dict["varimax"] = find_permutation(savar_signal, self.signal["varimax"])
-            idx_permutation = [self.permutation_dict["varimax"][i] for i in range(savar.n_variables)]
+            idx_permutation = [self.permutation_dict["varimax"][i] for i in range(savar.n_vars)]
 
             # Correct weights and signal
             self.weights["varimax"] = self.weights["varimax"][idx_permutation]
@@ -159,7 +163,6 @@ class DmMethod:
 
         ### PCA ###
         self.pca_out = PCA(n_components=self.max_comps)
-        self.pca_out = PCA(n_components=self.max_comps)
         # Input PCA: T times L
         self.pca_out.fit(self.data_field.transpose())
         self.weights["pca"] = self.pca_out.components_
@@ -170,9 +173,11 @@ class DmMethod:
         # If correct permutation we fix the permutation
         if self.correct_permutation:
             savar = deepcopy(self.savar)
-            savar_signal = savar.data_field @ savar.modes_weights.reshape(savar.n_variables, -1).transpose()
+            # find_permutation wants `true` as (T, K); data_field is (L, T) so
+            # transpose it: (T, L) @ (L, K) -> (T, K).
+            savar_signal = savar.data_field.transpose() @ savar.mode_weights.reshape(savar.n_vars, -1).transpose()
             self.permutation_dict["pca"] = find_permutation(savar_signal, self.signal["pca"])
-            idx_permutation = [self.permutation_dict["pca"][i] for i in range(savar.n_variables)]
+            idx_permutation = [self.permutation_dict["pca"][i] for i in range(savar.n_vars)]
 
             # New weights and signal
             self.weights["pca"] = self.weights["pca"][idx_permutation]
@@ -188,7 +193,8 @@ class DmMethod:
         if self.significance == "analytic" and self.ind_test == "ParCorr":
             ind_test = ParCorr(significance=self.significance)
         else:
-            raise ("Only ParrCorr test implemented your option: {} not yet implemented".format(self.ind_test))
+            raise NotImplementedError(
+                "Only ParCorr test implemented; your option: {} not yet implemented".format(self.ind_test))
 
         # Varimax
         self.pcmci["varimax_pcmci"] = PCMCI(
@@ -233,7 +239,7 @@ class DmMethod:
         Phi = corr_results_var_corr['val_matrix']
 
         # If p_value not enought set it to 0
-        Phi[[corr_results_var_corr['p_matrix'] > self.pc_alpha]] = 0
+        Phi[corr_results_var_corr['p_matrix'] > self.pc_alpha] = 0
 
         # Now we do the coefficient by Val_matrix[i, j, tau]*std(j)/std(i)
         Phi = (Phi * variance_vars[:, None]) / variance_vars[:, None, None]
@@ -280,7 +286,7 @@ class DmMethod:
 
                 predict_matrix[var, :] = pred.predict(var, new_data=None)
 
-        self.x_prediction["pca_corr"] = predict_matrix  # K times T
+        self.x_prediction["varimax_pcmci"] = predict_matrix  # K times T
 
         # Method 3: PCA Corr
         corr_results_pca_corr = deepcopy(self.tg_results["pca_corr"])
@@ -291,7 +297,7 @@ class DmMethod:
         Phi = corr_results_pca_corr['val_matrix']
 
         # If p_value not enough set it to 0
-        Phi[[corr_results_pca_corr['p_matrix'] > self.pc_alpha]] = 0
+        Phi[corr_results_pca_corr['p_matrix'] > self.pc_alpha] = 0
 
         # Now we do the coefficient by Val_matrix[i, j, tau]*std(j)/std(i)
         Phi = (Phi * variance_vars[:, None]) / variance_vars[:, None, None]
@@ -355,8 +361,9 @@ class DmMethod:
         if self.significance == "analytic" and self.ind_test == "ParCorr":
             ind_test = ParCorr(significance=self.significance)
         else:
-            raise ("Only ParrCorr test implemented your option: {} not yet implemented".format(self.ind_test))
-        dataframe = pp.DataFrame(self.savar.data_field)  # Input data for PCMCI T times K
+            raise NotImplementedError(
+                "Only ParCorr test implemented; your option: {} not yet implemented".format(self.ind_test))
+        dataframe = pp.DataFrame(self.savar.data_field.transpose())  # Input data for PCMCI: T times L
 
         #### PCMCI ####
         self.grid_pcmci["pcmci"] = PCMCI(
@@ -400,7 +407,7 @@ class DmMethod:
         Phi = corr_grd_results['val_matrix']
 
         # If p_value not enought set it to 0
-        Phi[[corr_grd_results['p_matrix'] > self.pc_alpha]] = 0
+        Phi[corr_grd_results['p_matrix'] > self.pc_alpha] = 0
 
         # Now we do the coefficient by Val_matrix[i, j, tau]*std(j)/std(i)
         Phi = (Phi * variance_vars[:, None]) / variance_vars[:, None, None]
@@ -426,18 +433,17 @@ class Evaluation:
         self.dm_object = dm_object
 
         # Extract dm_object
-        self.n_variables = self.dm_object.savar.n_variables
+        self.n_variables = self.dm_object.savar.n_vars
         self.tau_max = self.dm_object.tau_max
         self.dm_phi = self.dm_object.phi
         self.dm_cg = deepcopy(self.dm_phi)
         for key in self.dm_cg:
             self.dm_cg[key][np.abs(self.dm_phi[key]) > 0] = 1
-        self.dm_phi = self.dm_object.phi
         self.dm_weights = self.dm_object.weights
 
         # savar
         self.savar_phi = cg_to_est_phi(self.dm_object.savar.links_coeffs, tau_max=self.dm_object.tau_max)
-        self.savar_weights = self.dm_object.savar.modes_weights.reshape(self.n_variables, -1)
+        self.savar_weights = self.dm_object.savar.mode_weights.reshape(self.n_variables, -1)
         self.savar_cg = deepcopy(self.savar_phi)
         self.savar_cg[np.abs(self.savar_cg) > 0] = 1
 
@@ -479,7 +485,7 @@ class Evaluation:
             self.metrics[method]["precision"] = tp / (tp + fp)
         else:
             self.metrics[method]["precision"] = 0
-        if tp / (tp + fn) != 0:
+        if (tp + fn) != 0:
             self.metrics[method]["recall"] = tp / (tp + fn)
         else:
             self.metrics[method]["recall"] = 0
@@ -491,16 +497,16 @@ class Evaluation:
             method_dm = "pca"
         else:
             raise Exception("Method {} not correct".format(method))
-        N = self.dm_object.savar.n_variables
+        N = self.dm_object.savar.n_vars
         corr_weights = np.array([np.corrcoef(self.dm_object.weights[method_dm][i, ...],
-                                             self.dm_object.savar.modes_weights[i, ...].flatten())[0, 1]
+                                             self.dm_object.savar.mode_weights[i, ...].flatten())[0, 1]
                                  for i in range(N)])
 
         self.metrics[method]["corr_weights"] = np.abs(corr_weights)
 
         # Signal
         # (K times T) = K times L @ L times T
-        savar_signal = self.dm_object.savar.modes_weights.reshape(N, -1) @ self.dm_object.savar.data_field.T
+        savar_signal = self.dm_object.savar.mode_weights.reshape(N, -1) @ self.dm_object.savar.data_field
         corr_signal = np.array([np.corrcoef(self.dm_object.signal[method_dm][i, ...], savar_signal[i, ...])[0, 1]
                                 for i in range(N)])
         self.metrics[method]["corr_signal"] = np.abs(corr_signal)
@@ -542,8 +548,8 @@ class Evaluation:
                 self.cg_grid_conf_matrix[method] = confusion_matrix(savar_grid_cg, grid_cg, labels=(0, 1))
                 tn, fp, fn, tp = self.cg_grid_conf_matrix[method].ravel()
 
-                self.metrics[method]["grid_precision"] = tp / (tp + fp)
-                self.metrics[method]["grid_recall"] = tp / (tp + fn)
+                self.metrics[method]["grid_precision"] = tp / (tp + fp) if (tp + fp) != 0 else 0
+                self.metrics[method]["grid_recall"] = tp / (tp + fn) if (tp + fn) != 0 else 0
 
             if method in ("varimax_pcmci_w", "varimax_corr_w",
                                "pca_pcmci_w", "pca_corr_w"):
@@ -582,8 +588,8 @@ class Evaluation:
                 self.cg_grid_conf_matrix[method] = confusion_matrix(savar_grid_cg, grid_cg, labels=(0, 1))
                 tn, fp, fn, tp = self.cg_grid_conf_matrix[method].ravel()
 
-                self.metrics[method]["grid_precision"] = tp / (tp + fp)
-                self.metrics[method]["grid_recall"] = tp / (tp + fn)
+                self.metrics[method]["grid_precision"] = tp / (tp + fp) if (tp + fp) != 0 else 0
+                self.metrics[method]["grid_recall"] = tp / (tp + fn) if (tp + fn) != 0 else 0
 
     def obtain_score_metrics(self, perform_grid=False):
         """
@@ -610,8 +616,9 @@ class Evaluation:
 
 if __name__ == "__main__":
 
-    savar = generate_savar_model(3, tau_max=3, resolution=(10, 20), gaussian_shape=False)
-    savar.create_linear_savar_data()
+    savar = SavarGenerator(n_variables=3, tau_max=3, resolution=(10, 20),
+                           gaussian_shape=False).generate_savar()
+    savar.generate_data()
 
     dm_meth = DmMethod(savar, perform_analysis=False)
     dm_meth.perform_dm()

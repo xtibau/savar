@@ -137,27 +137,20 @@ class SavarGenerator:
         self.verbose = verbose
 
         # Some checks
-        if self.tau_min < 1 & self.tau_min > self.tau_max:
+        if self.tau_min < 1 or self.tau_min > self.tau_max:
             raise KeyError("Tau min must be at least one and smaller or equal than tau_max")
 
         if noise_weights is None and mode_weights is not None:
             self.noise_weights = self.mode_weights
 
-        if mode_weights is None and mode_weights is not None:
+        if mode_weights is None and noise_weights is not None:
             self.mode_weights = noise_weights
 
-        if mode_weights is not None:
-            if self.mode_weights.reshape(n_variables, -1).shape[0] != resolution[0]*resolution[1]:
+        if self.mode_weights is not None:
+            if self.mode_weights.reshape(self.n_variables, -1).shape[1] != resolution[0]*resolution[1]:
                 if self.verbose:
                     print("Warning: changing resolution to the shape of the modes")
                 self.resolution = (self.mode_weights.shape[1], self.mode_weights.shape[2])
-                
-        if self.links_coeffs is not None:
-            n_variables = len(self.links_coeffs)
-            if self.n_variables != n_variables:
-                warnings.warn("Number of variables in links_coeffs is different from n_vars."
-                              " Setting it to links_coeffs")
-                self.n_variables = n_variables
 
         if self.links_coeffs is not None:
             n_variables = len(self.links_coeffs)
@@ -165,6 +158,14 @@ class SavarGenerator:
                 warnings.warn("Number of variables in links_coeffs is different from n_vars."
                               " Setting it to links_coeffs")
                 self.n_variables = n_variables
+
+        # Seed once here so a generator built with the same model_seed reproduces the
+        # same model. Seeding must NOT happen per draw (see generate_links_coeff): the
+        # stationarity retry loop in generate_savar relies on the RNG advancing between
+        # trials, otherwise every retry would redraw the identical (unstable) links.
+        if self.model_seed is not None:
+            np.random.seed(self.model_seed)
+            random.seed(self.model_seed)
 
         if self.verbose:
             print("Class model generator created")
@@ -174,9 +175,10 @@ class SavarGenerator:
         Generates the random links coeffs according to the input
         :return:
         """
-        np.random.seed(self.model_seed)
-        random.seed(self.model_seed)
-        
+        # NOTE: do not re-seed the RNG here. The RNG is seeded once in __init__.
+        # Re-seeding on every call would make the retry loop in generate_savar
+        # redraw the exact same (potentially non-stationary) links forever.
+
         # Create empty link list
         links = {N: [] for N in range(self.n_variables)}
 
@@ -230,9 +232,11 @@ class SavarGenerator:
                 else:
                     weights[i, y_1:y_2, x_1: x_2] = self.shaped_mode(size=size, gaussian_shape=self.gaussian_shape,
                                                                      dipole=False, random_mode=self.random_mode)
-                # Add constraint |W|_1 = 1
+                # Add constraint |W|_1 = 1. Use the L1 norm (sum of absolute values),
+                # not the signed sum: a balanced dipole has signed sum ~ 0, which would
+                # divide by ~0 and blow the weights up to inf/nan.
                 if self.norm_weight:
-                    weights[i, y_1:y_2, x_1: x_2] /= weights[i, y_1:y_2, x_1: x_2].sum()
+                    weights[i, y_1:y_2, x_1: x_2] /= np.abs(weights[i, y_1:y_2, x_1: x_2]).sum()
         else:
             # Add the modes
             for i in range(self.n_variables):
@@ -240,7 +244,7 @@ class SavarGenerator:
                 weights[i, y_1:y_2, x_1:x_2] = self.shaped_mode(size=size, gaussian_shape=self.gaussian_shape,
                                                                 dipole=False, random_mode=self.random_mode)
                 if self.norm_weight:
-                    weights[i, y_1:y_2, x_1:x_2] /= weights[i, y_1:y_2, x_1:x_2].sum()
+                    weights[i, y_1:y_2, x_1:x_2] /= np.abs(weights[i, y_1:y_2, x_1:x_2]).sum()
         return size, weights
 
     def generate_savar(self):
@@ -272,6 +276,8 @@ class SavarGenerator:
             self.noise_weights = deepcopy(self.mode_weights)
 
         if self.n_var_ornstein is not None:
+            if self.ornstein_sigma is None:
+                raise ValueError("ornstein_sigma must be set when n_var_ornstein is used")
             ornstein_process = create_non_stationarity(N_var=self.n_var_ornstein,
                                                        t_sample=self.time_length,
                                                        sigma=self.ornstein_sigma,
@@ -443,6 +449,8 @@ class SavarGenerator:
         """
         Returns a random number from a gaussian distribution with a given mean and std, with a minimum link strength
         and a chance that the sign is inverted.
+        Note: because draws below ``strength_threshold`` are rejected, the magnitude follows a
+        one-sided *truncated* normal (so its mean is shifted above ``mean``), not N(mean, std).
         :param mean: mean
         :param std: standard deviation
         :param random_sign: if not None set the chances of the sign to be negative up to random_sign probability.

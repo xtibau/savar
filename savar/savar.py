@@ -89,7 +89,12 @@ class SAVAR:
         if self.latent_noise_cov is None:
             self.latent_noise_cov = np.eye(self.n_vars)
         if self.fast_noise_cov is None:
-            # TODO: Should be np.eye ???
+            # NOTE: with no fast ("grid-scale") noise the field covariance is
+            # noise_strength * W^+ D_x (W^+)^T, which has rank <= n_vars. The grid
+            # noise then lives entirely in span(W^+), so np.random.multivariate_normal
+            # samples from a singular covariance (expect a RuntimeWarning) and the
+            # field is exactly n_vars-dimensional. Pass `fast_cov` (e.g. a small
+            # multiple of np.eye(L)) to add full-rank grid-scale noise.
             self.fast_noise_cov = np.zeros((self.spatial_resolution, self.spatial_resolution))
 
         # Empty attributes
@@ -97,8 +102,8 @@ class SAVAR:
         self.seasonal_data_field = seasonal_data_field
         self.forcing_data_field = forcing_data_field
 
-        if np.random is not None:
-            np.random.seed(model_seed)
+        if self.model_seed is not None:
+            np.random.seed(self.model_seed)
 
     def generate_data(self) -> None:
         """
