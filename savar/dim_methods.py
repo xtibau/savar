@@ -46,8 +46,10 @@ def _pca_svd(data, truncate_by='max_comps', max_comps=60, fraction_explained_var
 
     n_obs = data.shape[0]
 
-    # Center data
-    data -= data.mean(axis=0)
+    # Center data. Use an out-of-place subtraction: `data` is often a (reshaped)
+    # view of the caller's array, so `data -= ...` would silently overwrite the
+    # user's data field.
+    data = data - data.mean(axis=0)
 
     # data_T = np.fastCopyAndTranspose(data)
     # print data.shape

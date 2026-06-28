@@ -320,8 +320,9 @@ def create_non_stationarity(N_var: int, t_sample: int, tau: float = 0.5, cov_mat
     #Smoothing using tigramite smoothing function
     try :
         X_smooth = smooth(X,smoothing_window)
-    except:
+    except Exception:
         print("Smoothing windows "+str(smoothing_window)+" is invalid")
+        X_smooth = X  # fall back to the unsmoothed process instead of crashing
     return X_smooth
 
 def create_graph(links_coeffs, return_lag = True):
