@@ -1,6 +1,11 @@
 .idea/*
 dist/*
+__pycache__/
 savar/__pycache__/*
 build/*
 test.py
+
+# Cython / build artifacts (generated from the .pyx sources at build time)
 savar/c_functions.c
+savar/c_dim_methods.c
+*.so

@@ -1,6 +1,7 @@
 numpy
 scipy
 tigramite
+networkx
 matplotlib
 scikit-learn
 cython

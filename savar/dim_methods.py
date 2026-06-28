@@ -219,7 +219,7 @@ def get_varimax_loadings_standard(data,
     s2 = np.diag(S) ** 2 / (data.shape[0] - 1.)
 
     # matrix with diagonal containing variances of rotated components
-    S2r = np.dot(np.dot(np.transpose(Rot), np.matrix(np.diag(s2))), Rot)
+    S2r = np.dot(np.dot(np.transpose(Rot), np.diag(s2)), Rot)
     expvar = np.diag(S2r)
 
     sorted_expvar = np.sort(expvar)[::-1]

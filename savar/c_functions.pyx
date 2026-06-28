@@ -9,9 +9,9 @@ import copy
 import cython
 
 # Type declarations
-DTYPE = np.float
+DTYPE = np.float64
 ctypedef np.float_t DTYPE_t
-ctypedef np.int_t DTYPE_int_t
+ctypedef np.int64_t DTYPE_int_t
 
 ################################
 ###### SPATIAL MODELS ##########
